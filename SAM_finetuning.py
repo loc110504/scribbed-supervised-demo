@@ -27,15 +27,15 @@ from my_utils.Sampling_Combine import random_sample, contour_sample, combine, En
 
 def get_args_parser():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--root_path', type=str, default='/home/cj/code/model_New/datasets/ACDC')
+    parser.add_argument('--root_path', type=str, default='/datasets/ACDC')
     parser.add_argument('--batch_size', type=int, default=4, help='batch size allocated to each GPU')
     parser.add_argument('--num_classes', type=int, default=4)
     parser.add_argument('--num', type=int, default=10)
     
     parser.add_argument('--patch_size', type=list,  default=[256, 256], help='patch size of network input')
     parser.add_argument('--seed', type=int, default=21, help='random seed')
-    parser.add_argument('--sam_model_type', type=str, default='vit_h', help='SAM model type')
-    parser.add_argument('--sam_checkpoint', type=str, default='/home/cj/code/model_New/SAM_FineTune/sam_vit_h_4b8939.pth', help='SAM model checkpoint')
+    parser.add_argument('--sam_model_type', type=str, default='vit_b', help='SAM model type')
+    parser.add_argument('--sam_checkpoint', type=str, default='SAM_Finetune/sam_vit_b_01ec64.pth', help='SAM model checkpoint')
     parser.add_argument('--exp', type=str, default='SAM_FineTune/iteration2_vith/ACDC_wo_iter')
     parser.add_argument('--iter', type=str, default='iteration2')
     
