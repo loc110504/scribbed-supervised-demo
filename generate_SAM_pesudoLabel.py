@@ -73,13 +73,6 @@ for i_batch, sampled_batch in enumerate(tqdm(valloader)):
                     output_main, dim=1), dim=1).squeeze(0)
     
     out = out.detach().cpu().numpy().astype(np.uint8())
-    # out = output_main[:,0][0]
-    
-    # out = out.detach().cpu().numpy().astype(np.uint8())
-    # print(np.unique(out))
-
-    # im = Image.fromarray(out)
-    # im.convert('L').save(f'{result_path}/{id}.png')
 
 
     cmap1 = ListedColormap(["black", "red", "blue","green"])
@@ -91,22 +84,7 @@ for i_batch, sampled_batch in enumerate(tqdm(valloader)):
     plt.axis('off')
     plt.savefig(f'{vis_path}/{id}.png', bbox_inches='tight', pad_inches=0)
     plt.close()
-    # raw_image_array = image[0][0].cpu().detach().numpy()
-    # raw_rgb = np.stack([raw_image_array]*3, axis=-1) * 255
 
-    # cmap1 = ListedColormap(["black","red",  "blue","green"])
-    # mask_array = out
-
-    # display_mask_rgb = cmap1(mask_array)[:, :, :3]
-
-    # alpha = 0.5
-    # image_with_mask = (raw_rgb).copy()
-    # mask_indices = (mask_array != 0)
-    # for i in range(3):
-    #     image_with_mask[mask_indices,i] = (alpha * (display_mask_rgb[mask_indices, i] * 255)+ ((1 - alpha) * image_with_mask[mask_indices,i]))
-        
-    # image_with_mask = np.clip(image_with_mask, 0, 255).astype(np.uint8)
-    # Image.fromarray(image_with_mask).save(f'{vis_path}/{id}.png')
 
 
 

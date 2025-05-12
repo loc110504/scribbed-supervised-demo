@@ -13,18 +13,18 @@ from scipy.ndimage import zoom
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
-##微调SAM的Dataset
 class BaseDataSets_SAM(Dataset):
     def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pesudo_label = 'SAM_PL', edge_paras=None):
-        self._base_dir = base_dir
+        self._base_dir = base_dir # folder chứa data
         self.sample_list = []
-        self.split = split
-        self.sup_type = sup_type
+        self.split = split #train/test
+        self.sup_type = sup_type # scribble/edge
         self.transform = transform
         self.edge_paras = edge_paras
         self.pesudo_label = pesudo_label
         train_ids, test_ids = self._get_fold_ids(fold)
         
+        # Load training data
         if self.split == 'train':
             self.all_slices = os.listdir(
                 self._base_dir + "/ACDC_training_slices")
@@ -34,6 +34,7 @@ class BaseDataSets_SAM(Dataset):
                     '{}.*'.format(ids), x) != None, self.all_slices))
                 self.sample_list.extend(new_data_list)
 
+        # Load test data
         elif self.split == 'val':
             self.all_volumes = os.listdir(
                 self._base_dir + "/ACDC_training_volumes")
@@ -43,7 +44,7 @@ class BaseDataSets_SAM(Dataset):
                     '{}.*'.format(ids), x) != None, self.all_volumes))
                 self.sample_list.extend(new_data_list)
 
-
+        # Kiểm tra số lượng mẫu
         print("total {} samples".format(len(self.sample_list)))
 
     def _get_fold_ids(self, fold):
@@ -81,6 +82,7 @@ class BaseDataSets_SAM(Dataset):
             sample = self.transform(sample)
         sample["idx"] = case
         return sample
+    
 def random_rot_flip(image, label,scribble,pesudo_label):
     k = np.random.randint(0, 4)
     image = np.rot90(image, k)
@@ -93,7 +95,8 @@ def random_rot_flip(image, label,scribble,pesudo_label):
     label = np.flip(label, axis=axis).copy()
     pesudo_label = np.flip(pesudo_label, axis=axis).copy()
     scribble = np.flip(scribble, axis=axis).copy()
-    return image, label,scribble, pesudo_label
+    return image, label, scribble, pesudo_label
+
 def random_rotate(image, label,scribble, pesudo_label,  cval):
     angle = np.random.randint(-20, 20)
     image = ndimage.rotate(image, angle, order=0, 
@@ -105,7 +108,8 @@ def random_rotate(image, label,scribble, pesudo_label,  cval):
     pesudo_label = ndimage.rotate(pesudo_label, angle, order=0, 
                            reshape=False)
 
-    return image, label,scribble, pesudo_label
+    return image, label, scribble, pesudo_label
+
 class RandomGenerator_SAM(object):
     def __init__(self, output_size,split):
         self.output_size = output_size
@@ -243,6 +247,7 @@ class BaseDataSets(Dataset):
             sample = self.transform(sample)
         sample["idx"] = case
         return sample
+    
 def random_rot_flip_conf(image, label, scribble,pesudo_label,conf):
     k = np.random.randint(0, 4)
     image = np.rot90(image, k)
@@ -252,9 +257,6 @@ def random_rot_flip_conf(image, label, scribble,pesudo_label,conf):
     conf0 = np.rot90(conf[0], k)
     conf1 = np.rot90(conf[1], k)
     conf2 = np.rot90(conf[2], k)
-    
-
-
     axis = np.random.randint(0, 2)
     image = np.flip(image, axis=axis).copy()
     label = np.flip(label, axis=axis).copy()
@@ -265,7 +267,8 @@ def random_rot_flip_conf(image, label, scribble,pesudo_label,conf):
     conf2 = np.flip(conf2, axis=axis).copy()
     conf_new = np.array([conf0,conf1,conf2])
     
-    return image, label, scribble, pesudo_label,conf_new
+    return image, label, scribble, pesudo_label, conf_new
+
 def random_rotate_conf(image, label, scribble, pesudo_label,conf,  cval):
     angle = np.random.randint(-20, 20)
     image = ndimage.rotate(image, angle, order=0, 
@@ -284,6 +287,7 @@ def random_rotate_conf(image, label, scribble, pesudo_label,conf,  cval):
                            reshape=False)
 
     return image, label, scribble, pesudo_label,conf
+
 class RandomGenerator(object):
     def __init__(self, output_size,split):
         self.output_size = output_size
@@ -370,10 +374,10 @@ class BaseDataSets_Net_G_SAM_PL(Dataset):
         sample = self.transform(sample)
         sample["idx"] = case
         return sample    
+    
 class RandomGenerator_Net_G_SAM_PL(object):
     def __init__(self, output_size):
         self.output_size = output_size
-
 
     def __call__(self, sample):
         
@@ -390,6 +394,7 @@ class RandomGenerator_Net_G_SAM_PL(object):
 
         sample = {"image": image, "label": label}
         return sample
+    
 ##SAM为分割网路生成伪标签的Dataset
 class BaseDataSets_SAM_pred(Dataset):
     def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pesudo_label = 'vit_H', edge_paras=None):

@@ -104,8 +104,6 @@ def model_train(
         loss.backward()
         optimizer.step()
 
-    
-
 
 
     if scheduler:
