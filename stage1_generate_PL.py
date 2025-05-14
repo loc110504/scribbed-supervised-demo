@@ -29,10 +29,10 @@ def save_pseudo_label(base_dir, iteration, case_id,
 
 def main():
     # ==== Cấu hình ====
-    base_dir   = "datasets/ACDC"
-    checkpoint = "SAM_FineTune/sam_vit_h_4b8939.pth"
-    model_type = "vit_h"
-    iteration  = 0    # bạn có thể tăng khi lặp lại Stage 1 nhiều lần
+    base_dir    = "/scribbed-supervised-demo/datasets/ACDC"
+    checkpoint  = "/scribbed-supervised-demo/SAM_Finetune/sam_vit_h_4b8939.pth"
+    model_type  = "vit_h"
+    iteration   = 0    # đánh số vòng pseudo-labeling
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     sam   = sam_model_registry[model_type](checkpoint).to(device)
@@ -42,60 +42,66 @@ def main():
     dataset = BaseDataSets_SAM_pred(
         base_dir=base_dir,
         split="train",
-        transform=None,
-        fold='fold1'
+        fold='fold1',
+        transform=RandomGenerator_SAM_pred([256, 256])
     )
-    # Gắn thêm transform để resize + tensor conversion
-    dataset.transform = RandomGenerator_SAM_pred([256, 256])
-
-    dataloader = DataLoader(dataset,
-                            batch_size=1,
-                            shuffle=False,
-                            num_workers=4)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True
+    )
 
     num_points = 10  # số điểm prompt mỗi class
+
     for batch in dataloader:
         # -- Đọc dữ liệu từ batch --
-        image_tensor  = batch['image'].to(device)       # [1, 3, H, W]
-        orig_image    = image_tensor[0,0].cpu().numpy() # [H, W] (một channel)
-        # Tạo input cho SAM: (H, W, 3)
+        image_t   = batch['image'].to(device)   # [1, 3, H, W]
+        scribble_t= batch['scribble'].to(device) # [1, H, W]
+        label_t   = batch['label'].to(device)   # [1, H, W]
+        case_id   = batch['idx'][0]             # ví dụ "patient001_slice005.h5"
+
+        # Chuẩn bị numpy arrays để lưu
+        orig_image = image_t[0,0].cpu().numpy()   # [H, W] (1 channel)
+        label_arr  = label_t[0].cpu().numpy()     # [H, W]
+        scribble_arr = scribble_t[0].cpu().numpy()# [H, W]
+
+        # Tạo input 3-channel cho SAM
         image_np = (orig_image * 255).astype(np.uint8)
-        image_np = np.stack([image_np]*3, axis=2)
+        image_np = np.stack([image_np]*3, axis=2) # [H, W, 3]
 
-        label_arr    = batch['label'][0].cpu().numpy()    # [H, W]
-        scribble_arr = batch['scribble'][0].cpu().numpy() # [H, W]
-        case_id      = batch['idx'][0]                    # ví dụ "patient001_slice005.h5"
+        # -- Sinh điểm prompt bằng contour sampling (truyền Tensor!) --
+        pts_lv   = contour_sample(scribble_t, 1, num_points)
+        pts_myo  = contour_sample(scribble_t, 2, num_points)
+        pts_rv   = contour_sample(scribble_t, 3, num_points)
+        pts_bg   = contour_sample(scribble_t, 4, num_points)
 
-        # -- Sinh điểm prompt bằng contour sampling --
-        pts_lv  = contour_sample(scribble_arr, 1, num_points)
-        pts_myo = contour_sample(scribble_arr, 2, num_points)
-        pts_rv  = contour_sample(scribble_arr, 3, num_points)
-        pts_bg  = contour_sample(scribble_arr, 4, num_points)
         all_pts_lv,  all_lbls_lv, \
         all_pts_rv,  all_lbls_rv, \
         all_pts_myo, all_lbls_myo = combine(pts_lv, pts_rv, pts_myo, pts_bg)
 
-        # -- Gọi SAM để sinh mask cho từng class --
+        # -- Sinh mask mỗi class với SAM Predictor --
         predictor.set_image(image_np)
         masks_lv,  _, _ = predictor.predict(
-            point_coords=np.array(all_pts_lv)  if all_pts_lv  is not None else None,
-            point_labels=np.array(all_lbls_lv) if all_lbls_lv is not None else None,
+            point_coords = np.array(all_pts_lv)  if all_pts_lv  is not None else None,
+            point_labels = np.array(all_lbls_lv) if all_lbls_lv is not None else None,
             multimask_output=False
         )
         predictor.set_image(image_np)
         masks_rv,  _, _ = predictor.predict(
-            point_coords=np.array(all_pts_rv)  if all_pts_rv  is not None else None,
-            point_labels=np.array(all_lbls_rv) if all_lbls_rv is not None else None,
+            point_coords = np.array(all_pts_rv)  if all_pts_rv  is not None else None,
+            point_labels = np.array(all_lbls_rv) if all_lbls_rv is not None else None,
             multimask_output=False
         )
         predictor.set_image(image_np)
         masks_myo, _, _ = predictor.predict(
-            point_coords=np.array(all_pts_myo)  if all_pts_myo  is not None else None,
-            point_labels=np.array(all_lbls_myo) if all_lbls_myo is not None else None,
+            point_coords = np.array(all_pts_myo)  if all_pts_myo  is not None else None,
+            point_labels = np.array(all_lbls_myo) if all_lbls_myo is not None else None,
             multimask_output=False
         )
 
-        # -- Kết hợp thành 1 pseudo-label đa lớp --
+        # -- Kết hợp thành pseudo-mask đa lớp --
         h, w = masks_lv.shape[1], masks_lv.shape[2]
         pseudo_mask = np.zeros((h, w), dtype=np.uint8)
         if all_pts_myo is not None:
