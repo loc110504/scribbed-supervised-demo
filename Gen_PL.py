@@ -1,8 +1,8 @@
 import torch
 from segment_anything.modeling.sam import Sam
 from segment_anything import sam_model_registry, SamPredictor
-from dataset.dataset_ACDC import BaseDataSets_SAM_pred,RandomGenerator_SAM_pred
-#from dataset.dataset_MSCMR import MSCMR_BaseDataSets_SAM_pred, MSCMR_RandomGenerator_SAM_pred
+# from dataset.dataset_ACDC import BaseDataSets_SAM_pred,RandomGenerator_SAM_pred
+from dataset.dataset_MSCMR import MSCMR_BaseDataSets_SAM_pred, MSCMR_RandomGenerator_SAM_pred
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
 from segment_anything.utils.transforms import ResizeLongestSide
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     #         load_path=save_best_path
     #     )
     predictor = SamPredictor(sam_model)
-    dataset = BaseDataSets_SAM_pred(base_dir="/home/cj/code/model_New/datasets/ACDC", transform=transforms.Compose([
-                                RandomGenerator_SAM_pred([256, 256])]
+    dataset = MSCMR_BaseDataSets_SAM_pred(base_dir="/home/cj/code/model_New/datasets/MSCMR", transform=transforms.Compose([
+                                MSCMR_RandomGenerator_SAM_pred([256, 256])]
                                 ),split="train",  fold='fold1', sup_type='scribble')
     dataloader = DataLoader(dataset, 1 , shuffle= False)
 
@@ -53,7 +53,14 @@ if __name__ == '__main__':
 
     for step, sample_list in tqdm(enumerate(dataloader)):
 
-        image, label, scribble, id  = sample_list['image'].cuda(), sample_list['label'].cuda(), sample_list['scribble'].cuda(), sample_list['idx']
+        image, label, scribble,id  = sample_list['image'].cuda(), sample_list['label'].cuda(), sample_list['scribble'].cuda(), sample_list['idx']
+        # sam_transform = ResizeLongestSide(sam_model.image_encoder.img_size)
+        # process_img = sam_transform.apply_image_torch(image)
+        
+        # sampled_point_batch_LV =  Entropy_contour_Sampling(scribble, image, 1, num)
+        # sampled_point_batch_MYO = Entropy_contour_Sampling(scribble, image, 2, num)
+        # sampled_point_batch_RV =  Entropy_contour_Sampling(scribble, image, 3, num)
+        # sampled_point_batch_background = Entropy_contour_Sampling(scribble, image, 4, num)
 
         sampled_point_batch_LV =  contour_sample(scribble, 1, num)
         sampled_point_batch_MYO = contour_sample(scribble, 2, num)
@@ -83,6 +90,39 @@ if __name__ == '__main__':
             input_labels_MYO = None   
 
 
+        # plt.figure(figsize=(10,10))
+        # plt.imshow(image,cmap='gray')
+        # plt.imshow(label,alpha= 0.5)
+        # if sampled_point_batch_LV is not None:
+        #     for x,y in sampled_point_batch_LV:
+        #         plt.plot(x,y,'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_LV_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
+
+        # plt.figure(figsize=(10,10))
+        # plt.imshow(image,cmap='gray')
+        # plt.imshow(label,alpha= 0.5)
+        # if sampled_point_batch_MYO is not None:
+        #     for i in range(sampled_point_batch_MYO.shape[0]):
+        #         x, y  = sampled_point_batch_MYO[i]
+        #         plt.plot(x, y, 'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_MYO_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
+
+        # plt.figure(figsize=(10,10))
+        # plt.imshow(image,cmap='gray')
+        # plt.imshow(label,alpha= 0.5)
+        # if sampled_point_batch_RV is not None:
+        #     for i in range(sampled_point_batch_RV.shape[0]):
+        #         x, y  = sampled_point_batch_RV[i]
+        #         plt.plot(x, y, 'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_RV_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
+
+
         predictor.set_image(image)
         masks_LV, iou_predictions, lows_LV =  predictor.predict(
             point_coords = input_points_LV,
@@ -106,6 +146,39 @@ if __name__ == '__main__':
             multimask_output= False)
         # im = Image.fromarray(lows_MYO.squeeze())
         # im.convert('L').save(f'{sam_conf_MYO}/{id[0][:-3]}.png')
+
+
+        # plt.figure(figsize=(10,10))
+        # # plt.imshow(image1[0][0].cpu().detach().numpy(),cmap='gray')
+        # plt.imshow(masks_LV[0],cmap='gray')
+        # if sampled_point_batch_LV is not None:
+        #     for x,y in sampled_point_batch_LV:
+        #         plt.plot(x,y,'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_LV_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
+
+        # plt.figure(figsize=(10,10))
+        # # plt.imshow(image1[0][0].cpu().detach().numpy(),cmap='gray')
+        # plt.imshow(masks_MYO[0],cmap='gray')
+        # if sampled_point_batch_MYO is not None:
+        #     for i in range(sampled_point_batch_MYO.shape[0]):
+        #         x, y  = sampled_point_batch_MYO[i]
+        #         plt.plot(x, y, 'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_MYO_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
+
+        # plt.figure(figsize=(10,10))
+        # # plt.imshow(image1[0][0].cpu().detach().numpy(),cmap='gray')
+        # plt.imshow(masks_RV[0],cmap='gray')
+        # if sampled_point_batch_RV is not None:
+        #     for i in range(sampled_point_batch_RV.shape[0]):
+        #         x, y  = sampled_point_batch_RV[i]
+        #         plt.plot(x, y, 'ro')
+        # plt.axis("off")
+        # plt.savefig(f'data/111/{111}_mask_RV_.png', bbox_inches='tight', pad_inches=0) 
+        # plt.close()
     
         
         mask = np.zeros((masks_LV.shape[1], masks_LV.shape[2]), np.uint8)
