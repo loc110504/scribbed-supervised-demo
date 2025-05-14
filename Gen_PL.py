@@ -1,8 +1,8 @@
 import torch
 from segment_anything.modeling.sam import Sam
 from segment_anything import sam_model_registry, SamPredictor
-# from dataset.dataset_ACDC import BaseDataSets_SAM_pred,RandomGenerator_SAM_pred
-from dataset.dataset_MSCMR import MSCMR_BaseDataSets_SAM_pred, MSCMR_RandomGenerator_SAM_pred
+from dataset.dataset_ACDC import BaseDataSets_SAM_pred,RandomGenerator_SAM_pred
+#from dataset.dataset_MSCMR import MSCMR_BaseDataSets_SAM_pred, MSCMR_RandomGenerator_SAM_pred
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
 from segment_anything.utils.transforms import ResizeLongestSide
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     #         load_path=save_best_path
     #     )
     predictor = SamPredictor(sam_model)
-    dataset = MSCMR_BaseDataSets_SAM_pred(base_dir="/home/cj/code/model_New/datasets/MSCMR", transform=transforms.Compose([
-                                MSCMR_RandomGenerator_SAM_pred([256, 256])]
+    dataset = BaseDataSets_SAM_pred(base_dir="/home/cj/code/model_New/datasets/ACDC", transform=transforms.Compose([
+                                RandomGenerator_SAM_pred([256, 256])]
                                 ),split="train",  fold='fold1', sup_type='scribble')
     dataloader = DataLoader(dataset, 1 , shuffle= False)
 
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     for step, sample_list in tqdm(enumerate(dataloader)):
 
-        image, label, scribble,id  = sample_list['image'].cuda(), sample_list['label'].cuda(), sample_list['scribble'].cuda(), sample_list['idx']
+        image, label, scribble, id  = sample_list['image'].cuda(), sample_list['label'].cuda(), sample_list['scribble'].cuda(), sample_list['idx']
 
         sampled_point_batch_LV =  contour_sample(scribble, 1, num)
         sampled_point_batch_MYO = contour_sample(scribble, 2, num)
