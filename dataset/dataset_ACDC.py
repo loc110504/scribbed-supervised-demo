@@ -14,14 +14,14 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
 class BaseDataSets_SAM(Dataset):
-    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pesudo_label = 'SAM_PL', edge_paras=None):
+    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pseudo_label = 'SAM_PL', edge_paras=None):
         self._base_dir = base_dir # folder chứa data
         self.sample_list = []
         self.split = split #train/test
         self.sup_type = sup_type # scribble/edge
         self.transform = transform
         self.edge_paras = edge_paras
-        self.pesudo_label = pesudo_label
+        self.pseudo_label = pseudo_label
         train_ids, test_ids = self._get_fold_ids(fold)
         
         # Load training data
@@ -74,8 +74,8 @@ class BaseDataSets_SAM(Dataset):
         label = h5f['label'][:]
         scribble = h5f['scribble'][:]
         if self.split == "train":
-            pesudo_label = h5f[self.pesudo_label][:]
-            sample = {'image': image, 'label': label, "scribble":scribble,'pesudo_label': pesudo_label}
+            pseudo_label = h5f[self.pseudo_label][:]
+            sample = {'image': image, 'label': label, "scribble":scribble,'SAM_PL': pseudo_label}
             sample = self.transform(sample)
         else:
             sample = {'image': image, 'label': label,'scribble': scribble}
@@ -83,21 +83,21 @@ class BaseDataSets_SAM(Dataset):
         sample["idx"] = case
         return sample
     
-def random_rot_flip(image, label,scribble,pesudo_label):
+def random_rot_flip(image, label,scribble,pseudo_label):
     k = np.random.randint(0, 4)
     image = np.rot90(image, k)
     label = np.rot90(label, k)
-    pesudo_label = np.rot90(pesudo_label, k)
+    pseudo_label = np.rot90(pseudo_label, k)
     scribble = np.rot90(scribble, k)
 
     axis = np.random.randint(0, 2)
     image = np.flip(image, axis=axis).copy()
     label = np.flip(label, axis=axis).copy()
-    pesudo_label = np.flip(pesudo_label, axis=axis).copy()
+    pseudo_label = np.flip(pseudo_label, axis=axis).copy()
     scribble = np.flip(scribble, axis=axis).copy()
-    return image, label, scribble, pesudo_label
+    return image, label, scribble, pseudo_label
 
-def random_rotate(image, label,scribble, pesudo_label,  cval):
+def random_rotate(image, label,scribble, pseudo_label,  cval):
     angle = np.random.randint(-20, 20)
     image = ndimage.rotate(image, angle, order=0, 
                            reshape=False)
@@ -105,10 +105,10 @@ def random_rotate(image, label,scribble, pesudo_label,  cval):
                            reshape=False, mode="constant", cval=cval)
     label = ndimage.rotate(label, angle, order=0, 
                            reshape=False)
-    pesudo_label = ndimage.rotate(pesudo_label, angle, order=0, 
+    pseudo_label = ndimage.rotate(pseudo_label, angle, order=0, 
                            reshape=False)
 
-    return image, label, scribble, pesudo_label
+    return image, label, scribble, pseudo_label
 
 class RandomGenerator_SAM(object):
     def __init__(self, output_size,split):
@@ -118,20 +118,20 @@ class RandomGenerator_SAM(object):
     def __call__(self, sample):
         
         if self.split == 'train':
-            image, label, scribble,pesudo_label  = sample["image"], sample["label"],sample["scribble"],sample["pesudo_label"]
+            image, label, scribble,pseudo_label  = sample["image"], sample["label"],sample["scribble"],sample["SAM_PL"]
 
             x, y= image.shape
-            x_pl,y_pl = pesudo_label.shape
+            x_pl,y_pl = pseudo_label.shape
             image = zoom(image, (self.output_size[0] / x, self.output_size[1] / y), order=0)
             label = zoom(label, (self.output_size[0] / x, self.output_size[1] / y), order=0)
             scribble = zoom(scribble, (self.output_size[0] / x, self.output_size[1] / y), order=0)
-            pesudo_label = zoom(pesudo_label, (self.output_size[0] / x_pl, self.output_size[1] / y_pl), order=0)
+            pseudo_label = zoom(pseudo_label, (self.output_size[0] / x_pl, self.output_size[1] / y_pl), order=0)
 
             image = torch.from_numpy(image.astype(np.float32)).unsqueeze(0)
             label = torch.from_numpy(label.astype(np.uint8))
-            pesudo_label = torch.from_numpy(pesudo_label.astype(np.uint8))
+            pseudo_label = torch.from_numpy(pseudo_label.astype(np.uint8))
             scribble = torch.from_numpy(scribble.astype(np.uint8))
-            sample = {"image": image, "label": label,"scribble":scribble, 'pesudo_label': pesudo_label}
+            sample = {"image": image, "label": label,"scribble":scribble, 'SAM_PL': pseudo_label}
         else:
             image, label,scribble = sample['image'], sample['label'], sample["scribble"]
 
@@ -144,15 +144,15 @@ class RandomGenerator_SAM(object):
 
 ##训练分割网路的Dataset
 class BaseDataSets(Dataset):
-    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pesudo_label = 'vit_H', pesudo_label_path = "ACDC_training_slices"):
+    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pseudo_label = 'vit_H', pseudo_label_path = "ACDC_training_slices"):
         self._base_dir = base_dir
         self.sample_list = []
         self.split = split
         self.sup_type = sup_type
         self.transform = transform
-        self.pesudo_label = pesudo_label
+        self.pseudo_label = pseudo_label
         train_ids, test_ids = self._get_fold_ids(fold)
-        self.pesudo_label_path = pesudo_label_path
+        self.pseudo_label_path = pseudo_label_path
         if self.split == 'train':
             self.all_slices = os.listdir(
                 self._base_dir + "/ACDC_training_slices")
@@ -228,7 +228,7 @@ class BaseDataSets(Dataset):
         case = self.sample_list[idx]
         if self.split == "train":
             h5f = h5py.File(self._base_dir +
-                            f"/{self.pesudo_label_path}/{case}", 'r')
+                            f"/{self.pseudo_label_path}/{case}", 'r')
 
         else:
             h5f = h5py.File(self._base_dir +
@@ -237,9 +237,9 @@ class BaseDataSets(Dataset):
         label = h5f['label'][:]
         if self.split == "train":
             scribble = h5f['scribble'][:]
-            pesudo_label = h5f[self.pesudo_label][:]
+            pseudo_label = h5f[self.pseudo_label][:]
             SAM_conf = np.array([h5f['LV'][:],h5f['MYO'][:],h5f['RV'][:]])
-            sample = {'image': image, 'label': label, 'scribble': scribble, 'pesudo_label': pesudo_label,'conf':SAM_conf}
+            sample = {'image': image, 'label': label, 'scribble': scribble, 'SAM_PL': pseudo_label,'conf':SAM_conf}
             sample = self.transform(sample)
 
         else:
@@ -248,12 +248,12 @@ class BaseDataSets(Dataset):
         sample["idx"] = case
         return sample
     
-def random_rot_flip_conf(image, label, scribble,pesudo_label,conf):
+def random_rot_flip_conf(image, label, scribble,pseudo_label,conf):
     k = np.random.randint(0, 4)
     image = np.rot90(image, k)
     label = np.rot90(label, k)
     scribble = np.rot90(scribble, k)
-    pesudo_label = np.rot90(pesudo_label, k)
+    pseudo_label = np.rot90(pseudo_label, k)
     conf0 = np.rot90(conf[0], k)
     conf1 = np.rot90(conf[1], k)
     conf2 = np.rot90(conf[2], k)
@@ -261,15 +261,15 @@ def random_rot_flip_conf(image, label, scribble,pesudo_label,conf):
     image = np.flip(image, axis=axis).copy()
     label = np.flip(label, axis=axis).copy()
     scribble = np.flip(scribble, axis=axis).copy()
-    pesudo_label = np.flip(pesudo_label, axis=axis).copy()
+    pseudo_label = np.flip(pseudo_label, axis=axis).copy()
     conf0 = np.flip(conf0, axis=axis).copy()
     conf1 = np.flip(conf1, axis=axis).copy()
     conf2 = np.flip(conf2, axis=axis).copy()
     conf_new = np.array([conf0,conf1,conf2])
     
-    return image, label, scribble, pesudo_label, conf_new
+    return image, label, scribble, pseudo_label, conf_new
 
-def random_rotate_conf(image, label, scribble, pesudo_label,conf,  cval):
+def random_rotate_conf(image, label, scribble, pseudo_label,conf,  cval):
     angle = np.random.randint(-20, 20)
     image = ndimage.rotate(image, angle, order=0, 
                            reshape=False)
@@ -277,7 +277,7 @@ def random_rotate_conf(image, label, scribble, pesudo_label,conf,  cval):
                            reshape=False)
     scribble = ndimage.rotate(scribble, angle, order=0,
                            reshape=False, mode="constant", cval=cval)
-    pesudo_label = ndimage.rotate(pesudo_label, angle, order=0, 
+    pseudo_label = ndimage.rotate(pseudo_label, angle, order=0, 
                            reshape=False)
     conf[0] = ndimage.rotate(conf[0], angle, order=0, 
                            reshape=False)
@@ -286,7 +286,7 @@ def random_rotate_conf(image, label, scribble, pesudo_label,conf,  cval):
     conf[2] = ndimage.rotate(conf[2], angle, order=0, 
                            reshape=False)
 
-    return image, label, scribble, pesudo_label,conf
+    return image, label, scribble, pseudo_label,conf
 
 class RandomGenerator(object):
     def __init__(self, output_size,split):
@@ -296,31 +296,31 @@ class RandomGenerator(object):
     def __call__(self, sample):
         
         if self.split == 'train':
-            image, label, scribble, pesudo_label,conf  = sample["image"], sample["label"], sample["scribble"], sample["pesudo_label"],sample["conf"]
+            image, label, scribble, pseudo_label,conf  = sample["image"], sample["label"], sample["scribble"], sample["SAM_PL"],sample["conf"]
 
             if random.random() > 0.5:
-                image, label, scribble, pesudo_label,conf = random_rot_flip_conf(image, label, scribble, pesudo_label,conf)
+                image, label, scribble, pseudo_label,conf = random_rot_flip_conf(image, label, scribble, pseudo_label,conf)
             elif random.random() > 0.5:
                 if 4 in np.unique(scribble):
-                    image, label, scribble, pesudo_label,conf = random_rotate_conf(image, label, scribble, pesudo_label,conf, cval=4)
+                    image, label, scribble, pseudo_label,conf = random_rotate_conf(image, label, scribble, pseudo_label,conf, cval=4)
                 else:
-                    image, label, scribble, pesudo_label,conf = random_rotate_conf(image, label, scribble, pesudo_label,conf, cval=0)
+                    image, label, scribble, pseudo_label,conf = random_rotate_conf(image, label, scribble, pseudo_label,conf, cval=0)
             x, y= image.shape 
             _,x_conf,y_conf = conf.shape
             image = zoom(image, (self.output_size[0] / x, self.output_size[1] / y), order=0)
             label = zoom(label, (self.output_size[0] / x, self.output_size[1] / y), order=0)
             scribble = zoom(scribble, (self.output_size[0] / x, self.output_size[1] / y), order=0)
-            pesudo_label = zoom(pesudo_label, (self.output_size[0] / x, self.output_size[1] / y), order=0)
+            pseudo_label = zoom(pseudo_label, (self.output_size[0] / x, self.output_size[1] / y), order=0)
             conf = zoom(conf, (1,self.output_size[0] / x_conf, self.output_size[1] / y_conf), order=0)
             
 
             image = torch.from_numpy(image.astype(np.float32)).unsqueeze(0)
             label = torch.from_numpy(label.astype(np.uint8))
-            pesudo_label = torch.from_numpy(pesudo_label.astype(np.uint8))
+            pseudo_label = torch.from_numpy(pseudo_label.astype(np.uint8))
             conf = torch.from_numpy(conf.astype(np.uint8))
             scribble = torch.from_numpy(scribble.astype(np.uint8))
 
-            sample = {"image": image, "label": label, "scribble":scribble, 'pesudo_label': pesudo_label,'conf':conf}
+            sample = {"image": image, "label": label, "scribble":scribble, 'SAM_PL': pseudo_label,'conf':conf}
         else:
             image, label = sample['image'], sample['label']
             channels, x, y = image.shape
@@ -397,14 +397,14 @@ class RandomGenerator_Net_G_SAM_PL(object):
     
 ##SAM为分割网路生成伪标签的Dataset
 class BaseDataSets_SAM_pred(Dataset):
-    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pesudo_label = 'vit_H', edge_paras=None):
+    def __init__(self, base_dir=None, split='train', transform=None, fold="fold1", sup_type="scribble",pseudo_label = 'vit_H', edge_paras=None):
         self._base_dir = base_dir
         self.sample_list = []
         self.split = split
         self.sup_type = sup_type
         self.transform = transform
         self.edge_paras = edge_paras
-        self.pesudo_label = pesudo_label
+        self.pseudo_label = pseudo_label
         train_ids, test_ids = self._get_fold_ids(fold)
         if self.split == 'train':
             self.all_slices = os.listdir(
@@ -516,7 +516,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     train_dataset = BaseDataSets_SAM_pred(base_dir="/home/cj/code/SAM_Scribble/data/ACDC", split="train", transform=transforms.Compose([
         BaseDataSets_SAM_pred([256, 256],'train')]
-        ), fold='fold1', sup_type='scribble', edge_paras="30_40_0",pesudo_label='vit_H')
+        ), fold='fold1', sup_type='scribble', edge_paras="30_40_0",pseudo_label='vit_H')
 
     print(train_dataset[13]['image'].shape)
 
@@ -527,5 +527,5 @@ if __name__ == "__main__":
     print(train_dataset[13]['scribble'].shape)
     print(np.unique(train_dataset[1]['scribble']))
 
-    print(train_dataset[13]['pesudo_label'].shape)
-    print(np.unique(train_dataset[1]['pesudo_label']))
+    print(train_dataset[13]['pseudo_label'].shape)
+    print(np.unique(train_dataset[1]['pseudo_label']))

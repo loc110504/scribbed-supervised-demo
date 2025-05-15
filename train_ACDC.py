@@ -79,7 +79,7 @@ def train(args, snapshot_path, savepath):
     model = net_factory(net_type=args.model, in_chns=1, class_num=num_classes)
     db_train = BaseDataSets(base_dir=args.root_path, split="train", transform=transforms.Compose([
         RandomGenerator(args.patch_size,split='train')
-    ]), fold=args.fold, sup_type=args.sup_type,pesudo_label_path=args.PL_path)
+    ]), fold=args.fold, sup_type=args.sup_type,pseudo_label_path=args.PL_path)
     db_val = BaseDataSets(base_dir=args.root_path, fold=args.fold,transform=transforms.Compose([
         RandomGenerator(args.patch_size,split='val')
     ]), split="val")
@@ -111,7 +111,7 @@ def train(args, snapshot_path, savepath):
     for epoch_num in iterator:
         for i_batch, sampled_batch in enumerate(trainloader):
 
-            volume_batch, label_batch, pesudo_label_batch,conf = sampled_batch['image'].cuda(), sampled_batch['scribble'].cuda(), sampled_batch['pesudo_label'].cuda(),sampled_batch['conf'].cuda()
+            volume_batch, label_batch, pseudo_label_batch,conf = sampled_batch['image'].cuda(), sampled_batch['scribble'].cuda(), sampled_batch['SAM_PL'].cuda(),sampled_batch['conf'].cuda()
 
 ######################################################################
 ###########################  Loss Function ###########################
@@ -132,7 +132,7 @@ def train(args, snapshot_path, savepath):
 
             latent_feature = F.normalize(latent_feature, dim=1)
             latent_feature = latent_feature.view(args.batch_size,256,-1)
-            index_ = pesudo_label_batch.view(args.batch_size,1,-1).long()
+            index_ = pseudo_label_batch.view(args.batch_size,1,-1).long()
 
             pt = torch_scatter.scatter_mean(latent_feature.detach(), index_)
             pt = F.normalize(pt, dim=1)
@@ -160,7 +160,7 @@ def train(args, snapshot_path, savepath):
                 conf_bg_2 = torch.zeros((outputs.shape[2],outputs.shape[3])).cuda()
                 for i in range(batch_size):
                     for k in range(1,(num_classes)):
-                        area = pesudo_label_batch[i]==k
+                        area = pseudo_label_batch[i]==k
 
                         sam_conf[i,k][area] = conf[i,k-1][area] * outputs_soft[i,k][area].mean()
                         conf_bg += conf[i,k-1]
@@ -171,7 +171,7 @@ def train(args, snapshot_path, savepath):
                         sam_conf_2[i,k][area] = conf[i,k-1][area] * outputs_soft_2[i,k][area].mean()
                         conf_bg_2 += conf[i,k-1]
 
-                    area = pesudo_label_batch[i]==0
+                    area = pseudo_label_batch[i]==0
 
                     conf_bg = conf_bg/3
                     sam_conf[i,0][area] = conf_bg[area]*outputs_soft[i,0][area].mean()
@@ -215,7 +215,7 @@ def train(args, snapshot_path, savepath):
 
 
             else:
-                loss_SCA = dice_loss(outputs_soft, pesudo_label_batch.unsqueeze(1)) + dice_loss(outputs_soft_2, pesudo_label_batch.unsqueeze(1)) +dice_loss(outputs_soft_2, pesudo_label_batch.unsqueeze(1)) 
+                loss_SCA = dice_loss(outputs_soft, pseudo_label_batch.unsqueeze(1)) + dice_loss(outputs_soft_2, pseudo_label_batch.unsqueeze(1)) +dice_loss(outputs_soft_2, pseudo_label_batch.unsqueeze(1)) 
 
 
             loss = loss_ce + loss_SCA + loss_ssa
