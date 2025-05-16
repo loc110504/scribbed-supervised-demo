@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from segment_anything import sam_model_registry, SamPredictor
 from dataset.dataset_ACDC import BaseDataSets_SAM_pred, RandomGenerator_SAM_pred
 from my_utils.Sampling_Combine import contour_sample, combine
+from torchvision.transforms import transforms
 
 def save_pseudo_label(base_dir, iteration, case_id,
                       image_arr, label_arr, scribble_arr, pseudo_mask):
@@ -32,7 +33,7 @@ def main():
     base_dir    = "/scribbed-supervised-demo/datasets/ACDC"
     checkpoint  = "/scribbed-supervised-demo/SAM_Finetune/sam_vit_h_4b8939.pth"
     model_type  = "vit_h"
-    iteration   = 0    # đánh số vòng pseudo-labeling
+    iteration   = 1    # đánh số vòng pseudo-labeling
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     sam   = sam_model_registry[model_type](checkpoint).to(device)
@@ -43,8 +44,13 @@ def main():
         base_dir=base_dir,
         split="train",
         fold='fold1',
-        transform=RandomGenerator_SAM_pred([256, 256])
+        sup_type='scribble',
+        pseudo_label='SAM_PL',
+        transform=transforms.Compose([
+            RandomGenerator_SAM_pred([256, 256])
+        ])
     )
+
     dataloader = DataLoader(
         dataset,
         batch_size=1,
